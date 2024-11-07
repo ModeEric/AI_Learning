@@ -39,10 +39,19 @@ class SelfDecoder(nn.Module):
         self.heads = heads
         self.finallinear = nn.Parameter(num_classes,d_model)
         self.layers = [SelfDecoderBlock(input_length,embedding_size,d_model,heads) for i in range(num_blocks)]
+        self.softmax = nn.Softmax(dim=1)
     def fixed_pos_embed(self,input):
-        new_tensor = torch.zeros(input[1:].shape)
-        for row in input:
-            for val in row:
-                new_tensor[]
-
-    def forward(self,input):
+        new_tensor = torch.zeros(input.shape)
+        for i in range(input.shape[0]):
+            for pos in range(input.shape[1]):
+                if i%2==0:
+                    new_tensor[i,pos] = torch.sin((pos/10000)**(2*i)/self.d_model) #Exponential is equally spaced throughout steps, perhaps can take advantage for speedup
+                else:
+                    new_tensor[i,pos] = torch.cos((pos/10000)**(2*i)/self.d_model)
+        return new_tensor
+    def forward(self,inputs):
+        embeddings = self.fixed_pos_embed(inputs)
+        for i in range(self.num_blocks):
+            embeddings = self.layers[i](embeddings())
+        output = self.finallinear @ embeddings
+        return self.softmax(output, dim=1)
